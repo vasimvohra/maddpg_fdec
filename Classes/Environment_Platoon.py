@@ -498,20 +498,39 @@ class Environ:
                     self.AoI[i] = (self.time_slow / self.time_fast)
         return self.AoI
 
-    def act_for_training(self, actions):
-
+    def act_for_training(self, action_all_training):
+        """
+        Compute rewards for training based on actions taken
+        Args:
+            action_all_training: numpy array of shape (n_platoons, 3) containing RB, mode, and power values
+        """
         per_user_reward = np.zeros(int(self.n_Veh / self.size_platoon))
-        action_temp = actions.copy()
-        platoon_AoI, C_rate, V_rate, Demand, elements = self.Compute_Performance_Reward_Train(action_temp)
-        V2V_success = 1 - np.sum(self.active_links) / (int(self.n_Veh / self.size_platoon))  # V2V success rates
+        action_temp = action_all_training.copy()
 
+        # Ensure power values are valid (positive and within range)
+        action_temp[:, 2] = np.clip(action_temp[:, 2], 1e-6, 30)
+
+        # Get performance metrics - note we're now unpacking all 5 returned values
+        platoon_AoI, C_rate, V_rate, Demand_R, reward_elements = self.Compute_Performance_Reward_Train(action_temp)
+
+        # Compute rewards for each platoon
         for i in range(int(self.n_Veh / self.size_platoon)):
+            # Calculate reward components with original scaling factors
+            demand_penalty = -4.95 * (Demand_R[i] / self.V2V_demand_size)
+            aoi_penalty = -platoon_AoI[i] / 20
+            v2i_reward = 0.05 * self.Revenue_function(C_rate[i], self.V2I_min)
+            power_penalty = 0.5 * np.log(max(action_temp[i, 2], 1e-6)) / np.log(5)  # log base 5
+            
+            # Combine rewards
+            per_user_reward[i] = demand_penalty + aoi_penalty + v2i_reward - power_penalty
 
-            per_user_reward[i] = (-4.95) * (Demand[i] / self.V2V_demand_size) - \
-                                 platoon_AoI[i] / 20 + (0.05) * self.Revenue_function(C_rate[i], self.V2I_min) - \
-                                 0.5 * math.log(action_temp[i, 2], 5)
+        # Calculate global reward
+        global_reward = np.mean(per_user_reward)
 
-        return per_user_reward, platoon_AoI, C_rate, V_rate, Demand, V2V_success
+        # Return all necessary values for training
+        return per_user_reward, global_reward, platoon_AoI, C_rate, V_rate, Demand_R
+
+        return per_user_reward, global_reward, platoon_AoI, C_rate, V_rate, Demand_R
 
     def act_for_testing(self, actions):
 

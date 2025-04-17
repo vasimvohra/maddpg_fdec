@@ -77,15 +77,14 @@ class CriticNetwork(nn.Module):
         checkpoint_file = os.path.join(self.checkpoint_dir, self.name + '_best')
         T.save(self.state_dict(), checkpoint_file)
 
-
 class ActorNetwork(nn.Module):
     def __init__(self, alpha, input_dims, fc1_dims, fc2_dims, n_agents, n_actions, name, agent_label,
                  chkpt_dir='tmp/ddpg'):
         super(ActorNetwork, self).__init__()
-        self.input_dims = input_dims
+        self.input_dims = input_dims  # Will be 62
         self.fc1_dims = fc1_dims
         self.fc2_dims = fc2_dims
-        self.n_actions = n_actions
+        self.n_actions = n_actions    # Will be 3
         self.name = name + '_' + str(agent_label)
         self.checkpoint_dir =  os.path.join(os.path.dirname(os.path.realpath(__file__)), chkpt_dir)
         self.checkpoint_file = os.path.join(self.checkpoint_dir, self.name + '_ddpg')
